@@ -1,15 +1,13 @@
-from datasets import load_dataset
-import torch
-from transformers import AutoTokenizer, DataCollatorWithPadding
-from torch.utils.data import DataLoader, RandomSampler
-from transformers import AutoModelForSequenceClassification
-from transformers import AdamW
-from transformers import get_scheduler
 import argparse
-from tqdm.auto import tqdm
+import torch
+from torch.utils.data import DataLoader
+from torch.optim import AdamW
+from transformers import AutoModelForSequenceClassification
+from transformers import get_scheduler
+from transformers import  DataCollatorWithPadding
 from datasets import load_metric
-import datasets
-from dataset import MyDataset
+from dataset import SQLDataset
+from tqdm.auto import tqdm
 
 def eval(dataloader, model):
     metric = load_metric("glue", "mrpc")
@@ -24,39 +22,33 @@ def eval(dataloader, model):
     
     return metric.compute()
 
-def train(dataloader, model, optimizer, lr_scheduler, criterion):
+def train(dataloader, model, optimizer, lr_scheduler):
     model.train()
     for batch in dataloader:
         batch = {k: v.to(model.device) for k, v in batch.items()}
-
-        outputs = model(**batch)
         
-        # loss = criterion(outputs.logits, batch['labels'])
+        outputs = model(**batch)
+
         loss = outputs.loss
         loss.backward()
 
         optimizer.step()
         lr_scheduler.step()
         optimizer.zero_grad()
-    
-    return
             
 def main(args):
     
     raw_datasets = {}
-    raw_datasets['train'] = MyDataset(args, 'train')
-    raw_datasets['validation'] = MyDataset(args, 'validation')
+    raw_datasets['train'] = SQLDataset(args, split='train')
+    raw_datasets['validation'] = SQLDataset(args, split='validation')
 
     data_collator = DataCollatorWithPadding(tokenizer=raw_datasets['train'].tokenizer)
 
-    train_sampler = RandomSampler(raw_datasets["train"], replacement=False, num_samples=args.batch_size)
-    eval_sampler = RandomSampler(raw_datasets["validation"], replacement=False, num_samples=args.batch_size * 2)
-
     train_dataloader = DataLoader(
-        raw_datasets["train"], batch_size=args.batch_size, collate_fn=data_collator, sampler=train_sampler
+        raw_datasets["train"], batch_size=args.batch_size, collate_fn=data_collator, num_workers=args.num_workers, persistent_workers=True
     )
     eval_dataloader = DataLoader(
-        raw_datasets["validation"], batch_size=args.batch_size, collate_fn=data_collator, sampler=eval_sampler
+        raw_datasets["validation"], batch_size=args.batch_size, collate_fn=data_collator, shuffle=False, num_workers=args.num_workers, persistent_workers=True
     )
 
     model = AutoModelForSequenceClassification.from_pretrained(args.checkpoint, num_labels=args.num_labels)
@@ -71,33 +63,35 @@ def main(args):
         num_training_steps=num_training_steps,
     )
 
-    criterion = torch.nn.CrossEntropyLoss()
-
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model.to(device)
 
-    progress_bar = tqdm(range(num_training_steps))
-
+    progress_bar = tqdm(range(args.num_epochs))
+    
     for epoch in range(args.num_epochs):
-        train(train_dataloader, model, optimizer, lr_scheduler, criterion)
         if epoch % args.eval_interval == 0:
             eval_results = eval(eval_dataloader, model)
-            print(eval_results)
-            
-        progress_bar.update(1)
+            print("epoch:", epoch, eval_results)
 
+        train(train_dataloader, model, optimizer, lr_scheduler)
+
+        progress_bar.update(1)
+    
     # final evaluation
     eval_results = eval(eval_dataloader, model)
-    print(eval_results)
+    print("epoch:", epoch, eval_results)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--lr", type=float, default=5e-5)
-    parser.add_argument("--num_epochs", type=int, default=30)
-    parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--num_epochs", type=int, default=3)
+    parser.add_argument("--batch-size", type=int, default=64)
+    parser.add_argument("--batches-per-worker", type=int, default=100)
     parser.add_argument("--checkpoint", type=str, default="bert-base-uncased")
     parser.add_argument("--num_labels", type=int, default=2)
-    parser.add_argument("--eval_interval", type=int, default=5)
+    parser.add_argument("--eval_interval", type=int, default=1)
     parser.add_argument("--dataset_root", default="data", help="path to to dataset root")
+    parser.add_argument("--num_workers", type=int, default=5)
+    parser.add_argument("--config-file", default="config.json", help="config file with SQL configuration parameters")
     args = parser.parse_args()
     main(args)

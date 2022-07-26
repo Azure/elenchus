@@ -1,0 +1,17 @@
+name: elenchus
+
+channels:
+- conda-forge
+
+dependencies:
+- pip
+- python=3.9
+- pip:
+  - torch
+  - transformers
+  - datasets
+  - sklearn
+  - scipy
+  - pandas
+  - sqlalchemy
+  - pyodbc
