@@ -2,9 +2,25 @@
 
 This project provides tools and libraries to train deep learning models, accessing data directly from a SQL table.
 
+
 ## Getting-Started
 
-Key steps:
+In this Getting-Started section, we will demonstrate how to fine tune a model on a Question Natural Language Inference (QNLI) tasks.
+
+As described on [Huggingface](https://huggingface.co/tasks/text-classification#question-natural-language-inference-qnli), "QNLI is the task of determining if the answer to a certain question can be found in a given document. If the answer can be found the label is 'entailment'. If the answer cannot be found the label is 'not entailment'."
+
+For example:
+```
+Question: What percentage of marine life died during the extinction?
+Sentence: It is also known as the “Great Dying” because it is considered the largest mass extinction in the Earth’s history.
+Label: not entailment
+
+Question: Who was the London Weekend Television’s Managing Director?
+Sentence: The managing director of London Weekend Television (LWT), Greg Dyke, met with the representatives of the "big five" football clubs in England in 1990.
+Label: entailment
+```
+
+**Key steps:**
 1. Clone this repository
 1. Create Azure SQL Managed Instance (or similar if you know what you are doing)
 1. Install ODBC driver for SQL Server
@@ -12,7 +28,7 @@ Key steps:
 1. Create table and insert tutorial data
 1. Fine-tune model
 
-We will describe this in the following subsections
+We will describe this in the following subsections. The training script is heavily influenced by the Hugging Face fine-tuning tutorial, which can be found [here](https://huggingface.co/course/chapter3/1?fw=pt).
 
 ### Create Azure SQL Managed Instance (MI)
 
