@@ -6,6 +6,7 @@ from sqlalchemy import create_engine
 import json
 import urllib
 
+
 def create_sql_engine(config):
     conn = f"""Driver={config['sql']['driver']};Server=tcp:{config['sql']['server']},1433;Database={config['sql']['database']};
     Uid={config['sql']['username']};Pwd={config['sql']['password']};Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"""
@@ -70,3 +71,5 @@ for split in ['train', 'validation', 'test']:
     add_clustered_index(table, engine)
 
     test_table(table, engine)
+
+    engine.dispose()

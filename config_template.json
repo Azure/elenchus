@@ -2,7 +2,9 @@
     {
     "username": "<username>",
     "password": "<password>",
+    "driver": "ODBC Driver 18 for SQL Server",
     "server": "<server>",
-    "table": "<table>"
+    "database": "<database>",
+    "table_prefix": "<table_prefix>"
     }
 }

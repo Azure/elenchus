@@ -20,6 +20,7 @@ class SQLDataset(IterableDataset):
 
         self.batch_size = args.batch_size
         self.batches_per_worker = args.batches_per_worker
+        self.num_workers = args.num_workers
 
         self.len = None
 
@@ -63,6 +64,7 @@ class SQLDataset(IterableDataset):
             print("Retrying in %f seconds" % delay)
             time.sleep(delay)
 
+
         if attempt == max_attempts:
             print("SQL query failed")
             raise e
@@ -76,7 +78,7 @@ class SQLDataset(IterableDataset):
 
     def load_data(self, indices):
         stmt = "SELECT * FROM %s WHERE idx IN (%s)" % (self.table, indices)
-        
+
         rows = self.execute_sql_query(stmt)
         return rows
         
