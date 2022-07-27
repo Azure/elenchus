@@ -5,19 +5,19 @@ This project provides tools and libraries to train deep learning models, accessi
 
 ## Getting-Started
 
-In this Getting-Started section, we will demonstrate how to fine tune a model on a Question Natural Language Inference (QNLI) tasks.
+In this Getting-Started section, we will demonstrate how to fine tune a model on a Question Natural Language Inference (QNLI) tasks. However, the code can easily be adapted for fine-tuning transfomer models for other variants of text classification.
 
-As described on [Huggingface](https://huggingface.co/tasks/text-classification#question-natural-language-inference-qnli), "QNLI is the task of determining if the answer to a certain question can be found in a given document. If the answer can be found the label is 'entailment'. If the answer cannot be found the label is 'not entailment'."
+As described on [Hugging Face](https://huggingface.co/tasks/text-classification#question-natural-language-inference-qnli), "QNLI is the task of determining if the answer to a certain question can be found in a given document. If the answer can be found the label is 'entailment'. If the answer cannot be found the label is 'not entailment'."
 
 For example:
 ```
 Question: What percentage of marine life died during the extinction?
 Sentence: It is also known as the “Great Dying” because it is considered the largest mass extinction in the Earth’s history.
-Label: not entailment
+Label: 0 (not entailment)
 
 Question: Who was the London Weekend Television’s Managing Director?
 Sentence: The managing director of London Weekend Television (LWT), Greg Dyke, met with the representatives of the "big five" football clubs in England in 1990.
-Label: entailment
+Label: 1 (entailment)
 ```
 
 **Key steps:**

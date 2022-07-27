@@ -17,54 +17,57 @@ class SQLDataset(IterableDataset):
 
         self.table = config['sql']['table_prefix'] + split
 
-        self.init_sql_engine(config)
+
         self.batch_size = args.batch_size
         self.batches_per_worker = args.batches_per_worker
         self.num_workers = args.num_workers
 
         self.len = None
 
+        self.init_sql_engine(config)
         self.tokenizer = AutoTokenizer.from_pretrained(args.checkpoint)
 
     def init_sql_engine(self, config):
         conn = f"""Driver={config['sql']['driver']};Server=tcp:{config['sql']['server']},1433;Database={config['sql']['database']};
-        Uid={config['sql']['username']};Pwd={config['sql']['password']};Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"""
+        Uid={config['sql']['username']};Pwd={config['sql']['password']};Encrypt=yes;TrustServerCertificate=yes;Connection Timeout=1;"""
 
         params = urllib.parse.quote_plus(conn)
         conn_str = 'mssql+pyodbc:///?autocommit=true&odbc_connect={}'.format(params)
-        self.sql_engine = create_engine(conn_str,echo=False,fast_executemany=True, pool_size=1000, max_overflow=100)
-
+        self.sql_engine = create_engine(conn_str,echo=False,echo_pool=False,fast_executemany=True,pool_size=1,pool_pre_ping=True)
+        self.sql_engine.dispose(close=True)
+        
     def execute_sql_query(self, stmt, max_attempts=100, nrows='all', engine=None):
         if engine == None:
             engine = self.sql_engine
-        
-        # ref: https://docs.sqlalchemy.org/en/14/core/pooling.html#pooling-multiprocessing
-        if self.num_workers > 1: engine.dispose(close=False) # single worker might be faster
 
-        with engine.connect() as conn:
-            for attempt in range(max_attempts):
-                try:
-                    res = conn.execute(stmt)
-                    if nrows == 'one':
-                        rows = res.fetchone()
-                        return rows
-                    elif nrows == 'all':
-                        rows = res.fetchall()
-                        return rows
-                    else:
-                        return
-                except InterfaceError as e:
-                    raise e
-                except OperationalError as e:
-                    print(e)
-                except TimeoutError as e:
-                    print(e)
-                except DBAPIError as e:
-                    print(e)
+        for attempt in range(max_attempts):
+            try:
+                res = engine.execute(stmt)
+                if nrows == 'one':
+                    rows = res.fetchone()
+                    return rows
+                elif nrows == 'all':
+                    rows = res.fetchall()
+                    return rows
+                else:
+                    return
+            except InterfaceError as e:
+                raise e
+            except OperationalError as e:
+                pass
+            except TimeoutError as e:
+                pass
+            except DBAPIError as e:
+                pass
 
-                delay = (attempt + 1) * .2
-                print("Retrying in %f seconds" % delay)
-                time.sleep(delay)
+            delay = (attempt + 1) * .2
+            print("Retrying in %f seconds" % delay)
+            time.sleep(delay)
+
+
+        if attempt == max_attempts:
+            print("SQL query failed")
+            raise e
 
     def __len__(self):
         if self.len == None:
@@ -81,9 +84,12 @@ class SQLDataset(IterableDataset):
         
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()
-        worker_id = worker_info.id
-
-        partition_size = len(self) // self.args.num_workers
+        if worker_info is None:
+            worker_id = 0
+            partition_size = len(self)
+        else:
+            worker_id = worker_info.id
+            partition_size = len(self) // self.args.num_workers
         perm = torch.randperm(partition_size) + worker_id * partition_size
 
         n_batches = min(self.batches_per_worker, partition_size // self.args.batch_size)
@@ -108,6 +114,8 @@ if __name__ == "__main__":
     parser.add_argument("--split", default="validation", help="dataset split (train, validation, test)")
     parser.add_argument("--config-file", default="config.json", help="config file with SQL configuration parameters")
     parser.add_argument("--checkpoint", type=str, default="bert-base-uncased")
+    parser.add_argument("--batch-size", type=int, default=64)
+    parser.add_argument("--batches-per-worker", type=int, default=100)
     args = parser.parse_args()
 
     dataset = SQLDataset(args, split=args.split)

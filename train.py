@@ -44,11 +44,12 @@ def main(args):
 
     data_collator = DataCollatorWithPadding(tokenizer=raw_datasets['train'].tokenizer)
 
+    persistent_workers = args.num_workers > 0
     train_dataloader = DataLoader(
-        raw_datasets["train"], batch_size=args.batch_size, collate_fn=data_collator, num_workers=args.num_workers, persistent_workers=True
+        raw_datasets["train"], batch_size=args.batch_size, collate_fn=data_collator, num_workers=args.num_workers, persistent_workers=persistent_workers
     )
     eval_dataloader = DataLoader(
-        raw_datasets["validation"], batch_size=args.batch_size, collate_fn=data_collator, shuffle=False, num_workers=args.num_workers, persistent_workers=True
+        raw_datasets["validation"], batch_size=args.batch_size, collate_fn=data_collator, shuffle=False, num_workers=args.num_workers, persistent_workers=persistent_workers
     )
 
     model = AutoModelForSequenceClassification.from_pretrained(args.checkpoint, num_labels=args.num_labels)
