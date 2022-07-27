@@ -107,7 +107,7 @@ If you run into memory capacity issues such as `RuntimeError: CUDA out of memory
 ### Delete and Cleanup
 If you need to delete the tables, you can run `python delete_dataset.py -tables`
 
-If you need to delete the whole database, you can run `python delete_data.py -db`
+If you need to delete the whole database, you can run `python delete_dataset.py -db`
 
 If you are done with the experiment, you can also go to the Azure Portal and delete the Azure SQL Managed Instance and/or the Resource Group.
 
