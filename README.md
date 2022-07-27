@@ -32,38 +32,84 @@ We will describe this in the following subsections. The training script is heavi
 
 ### Create Azure SQL Managed Instance (MI)
 
-Go to the Azure Portal to create a Azure SQL Managed Instance on the Azure Marketplace: [link](https://ms.portal.azure.com/#view/Microsoft_Azure_Marketplace/GalleryItemDetailsBladeNopdl/id/Microsoft.SQLManagedInstance)
+Go to the Azure Portal, and use the information below to create an Azure SQL Managed Instance on the Azure Marketplace: 
 
-For the purposes of this tutorial, you can select default options, except that you may want to make some changes to `Compute + storage` settings:
-- Reduce the number of vCores to the minumum
-- Reduce amount of storage to minimum
-- Select `Locally-redundant backup storage`
+- Go to this [link](https://ms.portal.azure.com/#view/Microsoft_Azure_Marketplace/GalleryItemDetailsBladeNopdl/id/Microsoft.SQLManagedInstance) and press "Create" to go to "Basics" setting
+
+- Subscription: Select your Azure Subscription. If you do not have an Azure Subscription, you can create one on this [link](https://azure.microsoft.com/en-us/free/).
+
+- Resource group: If you have an existing resource-groups in your subscription for this project, you can select that. Otherwise, press "Create new" and select a name for your new resource-group. 
+
+- Manage Instance name: Select a name for your Azure SQL Managed Instance
+
+- Region: Select a region. Your database will reside in the datacenter in this region. Note that for some regions you may get error for not having availablity for your subscription. Try other regions!
+
+- Compute + storage: Click `Configure Managed Instance`. For the purposes of this tutorial, you can select default options, except that you may want to make some changes to `Compute + storage` settings:
+    - Reduce the number of vCores to the minumum
+    - Reduce amount of storage to minimum
+    - Select `Locally-redundant backup storage`
 
 Detailed information on Azure SQL Managed Instance can be found [here](https://azure.microsoft.com/en-us/products/azure-sql/managed-instance).
 
+- Authentication: Select `Use SQL authentication` and pick a secure username and password for database admin on the corresponding spaces. Keep the username/password somewhere safe; you will need that on the next steps.
+
+- Click `Review + create` and click `Create`. 
+
+Leave this tab open as deployment may take some time! You can do the next two subsections as you are waiting.
+
 ### Install ODBC driver for SQL
 
-You can find the driver [here](https://docs.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server).
+You can find the driver [here](https://docs.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server). 
 
 Please install version 18 of the driver for your operating system.
 
+
 ### Generate Conda Environment
 
-We provide a Conda environment definition (`environment.yml`), to enable you to insetall all software dependencies with one command: `conda env create -f environment.yml`.
+We provide a Conda environment definition (`environment.yml`), to enable you to install all software dependencies with one command: `conda env create -f environment.yml`.
 
 > Prerequisite: If you don't have the conda package manager installed yet, we recommend installing miniconda from [here](https://docs.conda.io/en/latest/miniconda.html)
 
+
+Run `conda activate elenchus`
+
+### Create Database
+If the Azure SQL Managed Instance deployment is still in progress, you need to wait for the completion.
+
+After the deployment is completed, click on `Go to resource` button. This takes you to the the resource profile. You can see the `Managed instance admin` name you selected and the `Host` URL on the Essentials section of the page. Save these information for the next subsection. 
+
+On top left side, press + to add `New database`. Keep all the field as default and just enter a name for your database on `Database name` field. Press `Review and Create`. Then press `Create`.
+
 ### Create table and insert data
+Please update the provided template file `config_template.json` with the required information about your SQL server, listed below, and store the file under `config.json`:
 
-Please update the provided template file `config_template.json` with the required information about your SQL server, and store the file under `config.json`.
+- username: admin username you selected on Step 2 
+- password: admin password you selected on Step 2
+- driver: the default value is "ODBC Driver 18 for SQL Server", but if you installed a different ODBC driver, you can modify this field accordingly.
+- server: Go to the Azure SQL resource profile, under `Server name` you see your database server URL. Copy the URL and paste it here.
+- database: pick a name for your database
+- table_prefix: select a prefix for the tables name. For example, if your prefix would be "glue_", the table names would 'gule_train', 'glue_validation' and 'glue_test'.
 
-Then execute the script `convert_dataset.py`.
+Run `python convert_dataset.py`.
+
+The script will download The Microsoft Research Paraphrase Corpus glue dataset and upload it to your database. You can find more info about the dataset on this [link](https://www.tensorflow.org/datasets/catalog/glue#gluemrpc).
 
 ### Fine-Tune the model
 
-This can be done by running the script `train.py`.
+At this step you can fine-tune an example transformer with your data from database by running: `python train.py`.
+
+Note that the performance improvement after each epoch.
 
 For reference, when fine-tuning the model with the default settings on a Azure `Standard NC6` (NVIDIA Tesla K80), this should take about 15 minutes.
+
+If you run into memory capacity issues such as `RuntimeError: CUDA out of memory.`, you can decrease the `batch-size`.
+
+### Delete and Cleanup
+If you need to delete the tables, you can run `python delete_dataset.py -tables`
+
+If you need to delete the whole database, you can run `python delete_data.py -db`
+
+If you are done with the experiment, you can also go to the Azure Portal and delete the Azure SQL Managed Instance and/or the Resource Group.
 
 ## Contributing
 
