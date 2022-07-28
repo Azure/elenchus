@@ -21,6 +21,10 @@ def create_sql_engine(config):
 
 def add_clustered_index(table, engine):
     print("adding clustered index")
+
+    stmt = "DROP INDEX IF EXISTS %s_idx ON %s" % (table, table)
+    _ = engine.execute(stmt)
+
     # primary index as to be NOT NULL
     stmt = "ALTER TABLE %s alter column idx bigint NOT NULL" % table
     _ = engine.execute(stmt)
@@ -40,26 +44,22 @@ def test_table(table, engine):
 with open("config.json", "r") as f:
     config = json.load(f)
 
-
-raw_datasets = load_dataset("glue", "mrpc")
+raw_datasets = load_dataset("glue", config['data']['glue_subset'])
 
 os.makedirs('data', exist_ok=True)
 
 engine = create_sql_engine(config)
 
-for split in ['train', 'validation', 'test']:
-    sentence1 = []
-    sentence2 = []
-    labels = []
-    idx = []
+for split in raw_datasets.keys():
+    df_dict = {}
+    for column_name in raw_datasets.column_names[split]:
+        df_dict[column_name] = []
     for i, example in enumerate(raw_datasets[split]):
-        sentence1.append(example["sentence1"])
-        sentence2.append(example["sentence2"])
-        labels.append(example["label"])
-        idx.append(i)
-    df = pd.DataFrame({"sentence1": sentence1, "sentence2": sentence2, "labels": labels, "idx": idx})
+        for column_name in raw_datasets.column_names[split]:
+            df_dict[column_name].append(example[column_name])
+    df = pd.DataFrame(df_dict)
 
-    table = config['sql']['table_prefix'] + split
+    table = config['data']['glue_subset'] + split
     try:
         print("creating table")
         print("table name:", table)

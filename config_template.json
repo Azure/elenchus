@@ -1,10 +1,27 @@
-{"sql":
+{
+"data":
     {
-    "username": "<username>",
-    "password": "<password>",
-    "driver": "ODBC Driver 18 for SQL Server",
-    "server": "<server>",
-    "database": "<database>",
-    "table_prefix": "<table_prefix>"
+        "glue_subset": "qnli",
+        "num_labels": 2,
+        "train": "train",
+        "validation": "validation"
+    },
+"model":
+    {
+        "checkpoint": "bert-base-uncased",
+        "lr": 5e-5,
+        "batch_size": 8,
+        "batches_per_worker": 10,
+        "num_epochs": 3,
+        "eval_interval": 1,
+        "num_workers": 5
+    },
+"sql":
+    {
+        "username": "<username>",
+        "password": "<password>",
+        "driver": "ODBC Driver 18 for SQL Server",
+        "server": "<server>",
+        "database": "<database>"
     }
 }

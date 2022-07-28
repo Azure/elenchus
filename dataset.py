@@ -10,22 +10,21 @@ import torch
 
 class SQLDataset(IterableDataset):
     def __init__(self, args, split=""):
-        self.args = args
-
         with open(args.config_file, "r") as f:
             config = json.load(f)
+        self.config = config
 
-        self.table = config['sql']['table_prefix'] + split
+        self.table = config['data']['glue_subset'] + split
 
 
-        self.batch_size = args.batch_size
-        self.batches_per_worker = args.batches_per_worker
-        self.num_workers = args.num_workers
+        self.batch_size = config['model']['batch_size']
+        self.batches_per_worker = config['model']['batches_per_worker']
+        self.num_workers = config['model']['num_workers']
 
         self.len = None
 
         self.init_sql_engine(config)
-        self.tokenizer = AutoTokenizer.from_pretrained(args.checkpoint)
+        self.tokenizer = AutoTokenizer.from_pretrained(config['model']['checkpoint'])
 
     def init_sql_engine(self, config):
         conn = f"""Driver={config['sql']['driver']};Server=tcp:{config['sql']['server']},1433;Database={config['sql']['database']};
@@ -89,10 +88,10 @@ class SQLDataset(IterableDataset):
             partition_size = len(self)
         else:
             worker_id = worker_info.id
-            partition_size = len(self) // self.args.num_workers
+            partition_size = len(self) // self.config['model']['num_workers']
         perm = torch.randperm(partition_size) + worker_id * partition_size
 
-        n_batches = min(self.batches_per_worker, partition_size // self.args.batch_size)
+        n_batches = min(self.batches_per_worker, partition_size // self.config['model']['batch_size'])
 
         for batch in range(n_batches):
             sample_indices_t = perm[self.batch_size * batch:self.batch_size * (batch + 1)]
@@ -110,12 +109,8 @@ class SQLDataset(IterableDataset):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_root", default="data", help="path to to dataset root")
     parser.add_argument("--split", default="validation", help="dataset split (train, validation, test)")
     parser.add_argument("--config-file", default="config.json", help="config file with SQL configuration parameters")
-    parser.add_argument("--checkpoint", type=str, default="bert-base-uncased")
-    parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--batches-per-worker", type=int, default=100)
     args = parser.parse_args()
 
     dataset = SQLDataset(args, split=args.split)

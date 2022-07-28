@@ -111,6 +111,12 @@ If you need to delete the whole database, you can run `python delete_dataset.py 
 
 If you are done with the experiment, you can also go to the Azure Portal and delete the Azure SQL Managed Instance and/or the Resource Group.
 
+### Switching Classification Task Variant
+
+You can switch to a different classification task (aka. glue subset), by editing the `data` section in the `config.json` configuration file. For example, you can set `glue_subset` to "mnli". Be careful to also update the number of labels `num_labels`, as well as the names of the `train` and `validation` splits for those task variants.
+
+Don't forget to also run `python convert_dataset.py` before you try to fine-tune the model.
+
 ## Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a

@@ -1,4 +1,5 @@
 import argparse
+import json
 import torch
 from torch.utils.data import DataLoader
 from torch.optim import AdamW
@@ -9,8 +10,8 @@ from datasets import load_metric
 from dataset import SQLDataset
 from tqdm.auto import tqdm
 
-def eval(dataloader, model):
-    metric = load_metric("glue", "mrpc")
+def eval(dataloader, model, subset='qnli'):
+    metric = load_metric("glue", subset)
     model.eval()
     for batch in dataloader:
         batch = {k: v.to(model.device) for k, v in batch.items()}
@@ -37,26 +38,28 @@ def train(dataloader, model, optimizer, lr_scheduler):
         optimizer.zero_grad()
             
 def main(args):
-    
+    with open(args.config_file, "r") as f:
+        config = json.load(f)
+        
     raw_datasets = {}
-    raw_datasets['train'] = SQLDataset(args, split='train')
-    raw_datasets['validation'] = SQLDataset(args, split='validation')
+    raw_datasets['train'] = SQLDataset(args, split=config['data']['train'])
+    raw_datasets['validation'] = SQLDataset(args, split=config['data']['validation'])
 
     data_collator = DataCollatorWithPadding(tokenizer=raw_datasets['train'].tokenizer)
 
-    persistent_workers = args.num_workers > 0
+    persistent_workers = config['model']['num_workers'] > 0
     train_dataloader = DataLoader(
-        raw_datasets["train"], batch_size=args.batch_size, collate_fn=data_collator, num_workers=args.num_workers, persistent_workers=persistent_workers
+        raw_datasets["train"], batch_size=config['model']['batch_size'], collate_fn=data_collator, num_workers=config['model']['num_workers'], persistent_workers=persistent_workers
     )
     eval_dataloader = DataLoader(
-        raw_datasets["validation"], batch_size=args.batch_size, collate_fn=data_collator, shuffle=False, num_workers=args.num_workers, persistent_workers=persistent_workers
+        raw_datasets["validation"], batch_size=config['model']['batch_size'], collate_fn=data_collator, shuffle=False, num_workers=config['model']['num_workers'], persistent_workers=persistent_workers
     )
 
-    model = AutoModelForSequenceClassification.from_pretrained(args.checkpoint, num_labels=args.num_labels)
+    model = AutoModelForSequenceClassification.from_pretrained(config['model']['checkpoint'], num_labels=config['data']['num_labels'])
 
-    optimizer = AdamW(model.parameters(), lr=args.lr)
+    optimizer = AdamW(model.parameters(), lr=config['model']['lr'])
 
-    num_training_steps = args.num_epochs * len(train_dataloader)
+    num_training_steps = config['model']['num_epochs'] * len(train_dataloader)
     lr_scheduler = get_scheduler(
         "linear",
         optimizer=optimizer,
@@ -67,11 +70,11 @@ def main(args):
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model.to(device)
 
-    progress_bar = tqdm(range(args.num_epochs))
+    progress_bar = tqdm(range(config['model']['num_epochs']))
     
-    for epoch in range(args.num_epochs):
-        if epoch % args.eval_interval == 0:
-            eval_results = eval(eval_dataloader, model)
+    for epoch in range(config['model']['num_epochs']):
+        if epoch % config['model']['eval_interval'] == 0:
+            eval_results = eval(eval_dataloader, model, subset=config['data']['glue_subset'])
             print("epoch:", epoch, eval_results)
 
         train(train_dataloader, model, optimizer, lr_scheduler)
@@ -79,20 +82,11 @@ def main(args):
         progress_bar.update(1)
     
     # final evaluation
-    eval_results = eval(eval_dataloader, model)
+    eval_results = eval(eval_dataloader, model, subset=config['data']['glue_subset'])
     print("epoch:", epoch, eval_results)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--lr", type=float, default=5e-5)
-    parser.add_argument("--num_epochs", type=int, default=3)
-    parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--batches-per-worker", type=int, default=100)
-    parser.add_argument("--checkpoint", type=str, default="bert-base-uncased")
-    parser.add_argument("--num_labels", type=int, default=2)
-    parser.add_argument("--eval_interval", type=int, default=1)
-    parser.add_argument("--dataset_root", default="data", help="path to to dataset root")
-    parser.add_argument("--num_workers", type=int, default=5)
     parser.add_argument("--config-file", default="config.json", help="config file with SQL configuration parameters")
     args = parser.parse_args()
     main(args)
