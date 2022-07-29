@@ -22,8 +22,8 @@ Label: 1 (entailment)
 
 **Key steps:**
 1. Clone this repository
-1. Create Azure SQL Managed Instance (or similar if you know what you are doing)
-1. Install ODBC driver for SQL Server
+1. (Optional) Create Azure SQL Managed Instance
+1. (Optional) Install ODBC driver for SQL Server
 1. Generate Conda environment
 1. Create table and insert tutorial data
 1. Fine-tune model
@@ -31,6 +31,8 @@ Label: 1 (entailment)
 We will describe this in the following subsections. The training script is heavily influenced by the Hugging Face fine-tuning tutorial, which can be found [here](https://huggingface.co/course/chapter3/1?fw=pt).
 
 ### Create Azure SQL Managed Instance (MI)
+
+> **Note:** This Getting Started is built around using Azure SQL Server with ODBC and SQLAlchemy. If you are familiar with SQL, you should have no trouble modifying the code and configuration to fit your needs. This and the following section are offered to enable anybody else. We will add support for other SQL engines soon.
 
 Go to the Azure Portal, and use the information below to create an Azure SQL Managed Instance on the Azure Marketplace: 
 
