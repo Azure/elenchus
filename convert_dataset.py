@@ -1,11 +1,28 @@
 import os
+from transformers import AutoModelForSequenceClassification
+from transformers import AutoTokenizer
 from datasets import load_dataset
 import pandas as pd
 import pyodbc
 from sqlalchemy import create_engine
 import json
 import urllib
+import torch
 
+def generate_embedding(sentences, model, tokenizer, device='cuda'):
+    tokens_batch = tokenizer.batch_encode_plus(sentences, truncation=True, padding=True, return_tensors="pt")
+    for key in tokens_batch.keys():
+        tokens_batch[key] = tokens_batch[key].to(device)
+    with torch.no_grad():
+        outputs = model(**tokens_batch)
+    
+    json_out = []
+    for i in range(len(sentences)):
+        json_out.append(
+            json.dumps(outputs.logits[i].cpu().numpy().tolist())
+        )
+
+    return json_out
 
 def create_sql_engine(config):
     conn = f"""Driver={config['sql']['driver']};Server=tcp:{config['sql']['server']},1433;Database={config['sql']['database']};
@@ -44,32 +61,69 @@ def test_table(table, engine):
 with open("config.json", "r") as f:
     config = json.load(f)
 
-raw_datasets = load_dataset("glue", config['data']['glue_subset'])
+if config['data']['use_embeddings'] == True:    
+    
+    model = AutoModelForSequenceClassification.from_pretrained(config['model']['checkpoint'])
+    in_features = model.classifier.in_features
+    model.classifier = torch.nn.Identity(in_features)
+
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    model.to(device)
+    tokenizer = AutoTokenizer.from_pretrained(config['model']['checkpoint'])
+
+raw_datasets = load_dataset(config['data']['dataset'], config['data']['subset'])
+
+if config['data']['sample_size'] > 0:
+    for split in raw_datasets.keys():
+        sample_size = int(config['data']['sample_size'] * raw_datasets[split].num_rows)
+        raw_datasets[split] = raw_datasets[split].shuffle(seed=42).select(range(sample_size))
 
 os.makedirs('data', exist_ok=True)
 
 engine = create_sql_engine(config)
 
+import time
+batch_size = 64
+sentences = []
+
 for split in raw_datasets.keys():
-    df_dict = {}
+    df_dict = {"idx":[]}
     for column_name in raw_datasets.column_names[split]:
         df_dict[column_name] = []
+    start = time.time()
     for i, example in enumerate(raw_datasets[split]):
         for column_name in raw_datasets.column_names[split]:
             df_dict[column_name].append(example[column_name])
+        df_dict['idx'].append(i)
+        if config['data']['use_embeddings'] == True:
+            sentences.append(example[config['data']['text_column']])
+            if i % batch_size == 0 and i > 0:
+                embeddings = generate_embedding(sentences, model, tokenizer, device)
+                if 'embedding' not in df_dict.keys():
+                    df_dict['embedding'] = []
+                df_dict['embedding'] += embeddings
+                sentences = []
+
+        if i % 10000 == 0 and i > 0:
+            print("Split: %s," % split, "%0.1f%%" % (i/len(raw_datasets[split]) * 100), ", %0.3f s/sentence" % ((time.time() - start)/i))
+
+    if len(sentences) > 0:
+        embeddings = generate_embedding(sentences, model, tokenizer, device)
+        df_dict['embedding'] += embeddings
+
     df = pd.DataFrame(df_dict)
 
-    table = config['data']['glue_subset'] + split
+    table_name = config['data']['dataset'] + split
     try:
         print("creating table")
-        print("table name:", table)
-        df.to_sql(table, con=engine, if_exists='replace', index=False, method='multi', chunksize=100)
+        print("table name:", table_name)
+        df.to_sql(table_name, con=engine, if_exists='replace', index=False, method='multi', chunksize=100)
     except Exception as e:
         print(e)
         print("failed")
 
-    add_clustered_index(table, engine)
+    add_clustered_index(table_name, engine)
 
-    test_table(table, engine)
+    test_table(table_name, engine)
 
     engine.dispose()

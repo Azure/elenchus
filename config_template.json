@@ -1,18 +1,24 @@
 {
 "data":
     {
-        "glue_subset": "qnli",
-        "num_labels": 2,
+        "dataset": "dbpedia_14",
+        "subset": "dbpedia_14",
+        "text_column": "content",
+        "num_labels": 14,
         "train": "train",
-        "validation": "validation"
+        "validation": "test",
+        "metric": "accuracy",
+        "use_embeddings": true,
+        "sample_size": 0.1
     },
 "model":
     {
         "checkpoint": "bert-base-uncased",
-        "lr": 5e-5,
-        "batch_size": 8,
-        "batches_per_worker": 10,
-        "num_epochs": 3,
+        "lr": 1e-3,
+        "weight_decay": 1e-5,
+        "batch_size": 256,
+        "batches_per_worker": 1,
+        "num_epochs": 1000,
         "eval_interval": 1,
         "num_workers": 5
     },
