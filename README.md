@@ -106,6 +106,8 @@ For reference, when fine-tuning the model with the default settings on a Azure `
 
 If you run into memory capacity issues such as `RuntimeError: CUDA out of memory.`, you can decrease the `batch-size`.
 
+>`Note`: We rely on storing sentence embeddings in Azure SQL, to use them as input to a tiny text classification model. If you prefer to not use embeddings, simply change the [configuration file](config_template.json) setting `use_embeddings`.
+
 ### Delete and Cleanup
 If you need to delete the tables, you can run `python delete_dataset.py -tables`
 

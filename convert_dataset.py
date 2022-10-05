@@ -73,6 +73,11 @@ if config['data']['use_embeddings'] == True:
 
 raw_datasets = load_dataset(config['data']['dataset'], config['data']['subset'])
 
+if config['data']['sample_size'] > 0:
+    for split in raw_datasets.keys():
+        sample_size = int(config['data']['sample_size'] * raw_datasets[split].num_rows)
+        raw_datasets[split] = raw_datasets[split].shuffle(seed=42).select(range(sample_size))
+
 os.makedirs('data', exist_ok=True)
 
 engine = create_sql_engine(config)
@@ -81,7 +86,7 @@ import time
 batch_size = 64
 sentences = []
 
-for split in ['test']: #raw_datasets.keys():
+for split in raw_datasets.keys():
     df_dict = {"idx":[]}
     for column_name in raw_datasets.column_names[split]:
         df_dict[column_name] = []

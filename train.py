@@ -55,6 +55,8 @@ def main(args):
     # if we are fine-tuning BERT model, rather than training a small model, we should try to use the GPU
     if config['data']['use_embeddings'] == False:
         config['model']['device'] = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    else:
+        config['model']['device'] = torch.device("cpu")
     
     raw_datasets = {}
     raw_datasets['train'] = SQLDataset(args, split=config['data']['train'])
@@ -83,9 +85,19 @@ def main(args):
         model = MLP(input_dim, hidden_dim, output_dim)
     else:
         model = AutoModelForSequenceClassification.from_pretrained(config['model']['checkpoint'], num_labels=config['data']['num_labels'])
+        param_list = list(model.named_parameters())
+        # freeze all layers except the classifier weights
+        for p, param in enumerate(param_list):
+            if param[0].startswith('classifier') == False:
+                param[1].requires_grad = False
+
     model.to(config['model']['device'] )
 
-    optimizer = AdamW(model.parameters(), lr=config['model']['lr'])
+    optimizer = AdamW(
+        filter(lambda p: p.requires_grad, model.parameters()),
+        lr=config['model']['lr'],
+        weight_decay=config['model']['weight_decay'],
+        amsgrad=True)
 
     num_training_steps = config['model']['num_epochs'] * len(train_dataloader)
     lr_scheduler = get_scheduler(
