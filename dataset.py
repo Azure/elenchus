@@ -7,6 +7,7 @@ import urllib
 import json
 import time
 import torch
+import numpy as np
 
 class SQLDataset(IterableDataset):
     def __init__(self, args, split=""):
@@ -14,17 +15,26 @@ class SQLDataset(IterableDataset):
             config = json.load(f)
         self.config = config
 
-        self.table = config['data']['glue_subset'] + split
-
+        self.table = config['data']['dataset'] + split
 
         self.batch_size = config['model']['batch_size']
         self.batches_per_worker = config['model']['batches_per_worker']
         self.num_workers = config['model']['num_workers']
 
+        self.embedding_size = None
+        self.n_classes = None
         self.len = None
 
         self.init_sql_engine(config)
         self.tokenizer = AutoTokenizer.from_pretrained(config['model']['checkpoint'])
+
+    def get_embedding_size(self):
+        if self.embedding_size == None:
+            stmt = "SELECT embedding FROM %s" % self.table
+            embedding_json = self.execute_sql_query(stmt, nrows='one')[0]
+            embedding = json.loads(embedding_json)
+            self.embedding_size = len(embedding)
+        return self.embedding_size
 
     def init_sql_engine(self, config):
         conn = f"""Driver={config['sql']['driver']};Server=tcp:{config['sql']['server']},1433;Database={config['sql']['database']};
@@ -98,10 +108,18 @@ class SQLDataset(IterableDataset):
             sampled_indices = ",".join("{0}".format(n) for n in sample_indices_t)
             samples = self.load_data(sampled_indices)
 
-            for sample in samples:
-                tokenized = self.tokenize_function(sample)
-                tokenized['labels'] = sample[2]
-                yield tokenized
+            if self.config['data']['use_embeddings']:
+                for sample in samples:
+                    r = {
+                        'embedding': np.array(json.loads(sample[4])),
+                        'labels': sample[1]
+                    }
+                    yield r
+            else:
+                for sample in samples:
+                    tokenized = self.tokenize_function(sample[3])
+                    tokenized['labels'] = sample[1]
+                    yield tokenized
 
     def tokenize_function(self, example):
         return self.tokenizer(example[0], example[1], truncation=True)

@@ -1,10 +1,14 @@
 {
 "data":
     {
-        "glue_subset": "qnli",
-        "num_labels": 2,
+        "dataset": "dbpedia_14",
+        "subset": "dbpedia_14",
+        "text_column": "content",
+        "num_labels": 14,
         "train": "train",
-        "validation": "validation"
+        "validation": "test",
+        "metric": "accuracy",
+        "use_embeddings": true
     },
 "model":
     {
@@ -12,7 +16,7 @@
         "lr": 5e-5,
         "batch_size": 8,
         "batches_per_worker": 10,
-        "num_epochs": 3,
+        "num_epochs": 100,
         "eval_interval": 1,
         "num_workers": 5
     },
